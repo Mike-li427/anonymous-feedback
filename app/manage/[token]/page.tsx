@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { getDashboardDataByToken, revealVisitor } from "@/lib/actions";
-import { Profile, MessageWithReveal, Visitor } from "@/lib/supabase";
 import { formatRelativeTime, getBaseUrl } from "@/lib/utils";
 
 const QRCodeSVG = dynamic(() => import("qrcode.react").then(mod => mod.QRCodeSVG), { ssr: false });
@@ -14,9 +13,9 @@ export default function ManageDashboard() {
   const params = useParams();
   const token = params.token as string;
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [messages, setMessages] = useState<MessageWithReveal[]>([]);
-  const [visitors, setVisitors] = useState<Visitor[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [visitors, setVisitors] = useState<any[]>([]);
   const [chats, setChats] = useState<{ visitor_token: string; last_message: string; created_at: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"messages" | "visitors" | "chats">("messages");
@@ -169,7 +168,7 @@ export default function ManageDashboard() {
               messages.map((message) => (
                 <div key={message.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                   <p className="text-gray-900">{message.content}</p>
-                  <p className="text-xs text-gray-400 mt-2">{formatRelativeTime(message.created_at)}</p>
+                  <p className="text-xs text-gray-400 mt-2">{formatRelativeTime(message.createdAt)}</p>
                   <div className="mt-3 pt-3 border-t border-gray-100">
                     {message.mode === "anonymous" ? (
                       <div className="flex items-center gap-2 text-gray-400">
@@ -186,11 +185,11 @@ export default function ManageDashboard() {
                           </svg>
                           <span className="text-sm font-medium">已解锁身份</span>
                         </div>
-                        {message.reveal_profiles && (
+                        {message.revealProfile && (
                           <div className="bg-emerald-50 rounded-xl p-3 space-y-1">
-                            <p className="text-sm"><span className="font-medium">昵称：</span>{message.reveal_profiles.nickname}</p>
-                            {message.reveal_profiles.contact_hint && <p className="text-sm"><span className="font-medium">联系方式：</span>{message.reveal_profiles.contact_hint}</p>}
-                            {message.reveal_profiles.intro && <p className="text-sm"><span className="font-medium">介绍：</span>{message.reveal_profiles.intro}</p>}
+                            <p className="text-sm"><span className="font-medium">昵称：</span>{message.revealProfile.nickname}</p>
+                            {message.revealProfile.contactHint && <p className="text-sm"><span className="font-medium">联系方式：</span>{message.revealProfile.contactHint}</p>}
+                            {message.revealProfile.intro && <p className="text-sm"><span className="font-medium">介绍：</span>{message.revealProfile.intro}</p>}
                           </div>
                         )}
                       </div>
@@ -230,7 +229,7 @@ export default function ManageDashboard() {
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">{visitor.revealed ? (visitor.nickname || "匿名用户") : "匿名访客"}</p>
-                      <p className="text-xs text-gray-400">{formatRelativeTime(visitor.created_at)}</p>
+                      <p className="text-xs text-gray-400">{formatRelativeTime(visitor.createdAt)}</p>
                     </div>
                   </div>
                   {!visitor.revealed && (

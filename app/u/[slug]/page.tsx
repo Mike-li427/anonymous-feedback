@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getProfileBySlug, createMessage, recordVisitor } from "@/lib/actions";
-import { Profile } from "@/lib/supabase";
 import { getVisitorToken } from "@/lib/visitor";
 
 export default function UserProfile() {
@@ -12,7 +11,7 @@ export default function UserProfile() {
   const router = useRouter();
   const slug = params.slug as string;
 
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [content, setContent] = useState("");
   const [mode, setMode] = useState<"anonymous" | "revealable">("anonymous");
   const [nickname, setNickname] = useState("");

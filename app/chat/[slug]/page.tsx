@@ -3,15 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { getProfileBySlug, sendChatMessage, getChatMessages, recordVisitor } from "@/lib/actions";
-import { Profile, Chat } from "@/lib/supabase";
 import { getVisitorToken } from "@/lib/visitor";
 
 export default function ChatPage() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [messages, setMessages] = useState<Chat[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);

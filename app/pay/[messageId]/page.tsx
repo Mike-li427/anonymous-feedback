@@ -3,14 +3,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createPaymentOrder, getPaymentOrderByMessage, confirmPayment } from "@/lib/actions";
-import { PaymentOrder } from "@/lib/supabase";
 
 export default function Payment() {
   const params = useParams();
   const router = useRouter();
   const messageId = params.messageId as string;
 
-  const [order, setOrder] = useState<PaymentOrder | null>(null);
+  const [order, setOrder] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [polling, setPolling] = useState(false);

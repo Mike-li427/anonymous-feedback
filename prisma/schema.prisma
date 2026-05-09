@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  nickname    String
+  bio         String?
+  slug        String   @unique
+  ownerToken  String   @unique @map("owner_token")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  messages        Message[]
+  visitors        Visitor[]
+  chats           Chat[]
+  paymentOrders   PaymentOrder[]
+
+  @@map("profiles")
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  profileId   String   @map("profile_id")
+  content     String
+  mode        String
+  revealed    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile         Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  revealProfile   RevealProfile?
+  paymentOrders   PaymentOrder[]
+
+  @@map("messages")
+}
+
+model RevealProfile {
+  id            String   @id @default(uuid())
+  messageId     String   @unique @map("message_id")
+  nickname      String
+  contactHint   String?  @map("contact_hint")
+  intro         String?
+  consentReveal Boolean  @default(true) @map("consent_reveal")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("reveal_profiles")
+}
+
+model Visitor {
+  id            String   @id @default(uuid())
+  profileId     String   @map("profile_id")
+  visitorToken  String   @map("visitor_token")
+  nickname      String?
+  avatarUrl     String?  @map("avatar_url")
+  contactInfo   String?  @map("contact_info")
+  revealed      Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([visitorToken])
+  @@map("visitors")
+}
+
+model Chat {
+  id            String   @id @default(uuid())
+  profileId     String   @map("profile_id")
+  visitorToken  String   @map("visitor_token")
+  sender        String
+  content       String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([visitorToken])
+  @@map("chats")
+}
+
+model PaymentOrder {
+  id                    String    @id @default(uuid())
+  messageId             String    @map("message_id")
+  profileId             String    @map("profile_id")
+  amount                Int       @default(520)
+  status                String    @default("pending")
+  provider              String    @default("wechat")
+  providerOrderId       String?   @map("provider_order_id")
+  providerTransactionId String?   @map("provider_transaction_id")
+  paidAt                DateTime? @map("paid_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([status])
+  @@index([providerOrderId])
+  @@map("payment_orders")
+}
