@@ -5,12 +5,12 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Database types
 export interface Profile {
   id: string;
   nickname: string;
   bio: string | null;
   slug: string;
+  owner_token: string;
   created_at: string;
 }
 
@@ -33,12 +33,10 @@ export interface RevealProfile {
   created_at: string;
 }
 
-// Extended message type with reveal profile
 export interface MessageWithReveal extends Message {
   reveal_profiles: RevealProfile | null;
 }
 
-// Visitor type
 export interface Visitor {
   id: string;
   profile_id: string;
@@ -50,12 +48,24 @@ export interface Visitor {
   created_at: string;
 }
 
-// Chat type
 export interface Chat {
   id: string;
   profile_id: string;
   visitor_token: string;
   sender: "owner" | "visitor";
   content: string;
+  created_at: string;
+}
+
+export interface PaymentOrder {
+  id: string;
+  message_id: string;
+  profile_id: string;
+  amount: number;
+  status: "pending" | "paid" | "failed" | "closed";
+  provider: string;
+  provider_order_id: string | null;
+  provider_transaction_id: string | null;
+  paid_at: string | null;
   created_at: string;
 }

@@ -1,23 +1,19 @@
 "use server";
 
-import { supabase, Profile, Message, MessageWithReveal, Visitor, Chat } from "./supabase";
-import { generateSlug } from "./utils";
+import { supabase, Profile, Message, MessageWithReveal, Visitor, Chat, PaymentOrder } from "./supabase";
+import { generateSlug, generateOwnerToken } from "./utils";
 import { revalidatePath } from "next/cache";
 
-// Create a new profile
 export async function createProfile(
   nickname: string,
   bio: string
-): Promise<Profile> {
+): Promise<{ profile: Profile; ownerToken: string }> {
   const slug = generateSlug();
+  const ownerToken = generateOwnerToken();
 
   const { data, error } = await supabase
     .from("profiles")
-    .insert({
-      nickname,
-      bio,
-      slug,
-    })
+    .insert({ nickname, bio, slug, owner_token: ownerToken })
     .select()
     .single();
 
@@ -26,10 +22,9 @@ export async function createProfile(
     throw new Error(`Failed to create profile: ${error.message}`);
   }
 
-  return data;
+  return { profile: data, ownerToken };
 }
 
-// Get profile by slug
 export async function getProfileBySlug(slug: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
@@ -37,239 +32,78 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
     .eq("slug", slug)
     .single();
 
-  if (error) {
-    return null;
-  }
-
+  if (error) return null;
   return data;
 }
 
-// Create a new message
+export async function getProfileByOwnerToken(ownerToken: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("owner_token", ownerToken)
+    .single();
+
+  if (error) return null;
+  return data;
+}
+
 export async function createMessage(
   profileId: string,
   content: string,
   mode: "anonymous" | "revealable",
-  revealProfile?: {
-    nickname: string;
-    contact_hint: string;
-    intro: string;
-  }
+  revealProfile?: { nickname: string; contact_hint: string; intro: string }
 ): Promise<Message> {
-  // Create the message
   const { data: message, error: messageError } = await supabase
     .from("messages")
-    .insert({
-      profile_id: profileId,
-      content,
-      mode,
-    })
+    .insert({ profile_id: profileId, content, mode })
     .select()
     .single();
 
-  if (messageError) {
-    throw new Error(`Failed to create message: ${messageError.message}`);
-  }
+  if (messageError) throw new Error(`Failed to create message: ${messageError.message}`);
 
-  // If mode is revealable, create the reveal profile
   if (mode === "revealable" && revealProfile) {
     const { error: revealError } = await supabase
       .from("reveal_profiles")
-      .insert({
-        message_id: message.id,
-        nickname: revealProfile.nickname,
-        contact_hint: revealProfile.contact_hint,
-        intro: revealProfile.intro,
-      });
+      .insert({ message_id: message.id, ...revealProfile });
 
-    if (revealError) {
-      throw new Error(
-        `Failed to create reveal profile: ${revealError.message}`
-      );
-    }
+    if (revealError) throw new Error(`Failed to create reveal profile: ${revealError.message}`);
   }
 
   return message;
 }
 
-// Get dashboard data for a profile
-export async function getDashboardData(
-  profileId: string
-): Promise<{ profile: Profile; messages: MessageWithReveal[] }> {
-  // Get profile
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", profileId)
-    .single();
+export async function getDashboardDataByToken(
+  ownerToken: string
+): Promise<{ profile: Profile; messages: MessageWithReveal[]; visitors: Visitor[]; chats: { visitor_token: string; last_message: string; created_at: string }[] }> {
+  const profile = await getProfileByOwnerToken(ownerToken);
+  if (!profile) throw new Error("Profile not found");
 
-  if (profileError) {
-    throw new Error(`Failed to get profile: ${profileError.message}`);
-  }
-
-  // Get messages with reveal profiles
   const { data: messages, error: messagesError } = await supabase
     .from("messages")
-    .select(
-      `
-      *,
-      reveal_profiles (*)
-    `
-    )
-    .eq("profile_id", profileId)
+    .select("*, reveal_profiles (*)")
+    .eq("profile_id", profile.id)
     .order("created_at", { ascending: false });
 
-  if (messagesError) {
-    throw new Error(`Failed to get messages: ${messagesError.message}`);
-  }
+  if (messagesError) throw new Error(`Failed to get messages: ${messagesError.message}`);
 
-  return {
-    profile,
-    messages: messages || [],
-  };
-}
-
-// Mock reveal a message (simulate payment)
-export async function mockRevealMessage(messageId: string): Promise<void> {
-  const { error } = await supabase
-    .from("messages")
-    .update({ revealed: true })
-    .eq("id", messageId);
-
-  if (error) {
-    throw new Error(`Failed to reveal message: ${error.message}`);
-  }
-
-  revalidatePath("/dashboard");
-}
-
-// Check if slug exists
-export async function checkSlugExists(slug: string): Promise<boolean> {
-  const { data } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("slug", slug)
-    .single();
-
-  return !!data;
-}
-
-// Record a visitor
-export async function recordVisitor(
-  profileId: string,
-  visitorToken: string
-): Promise<void> {
-  // Check if visitor already exists
-  const { data: existing } = await supabase
-    .from("visitors")
-    .select("id")
-    .eq("profile_id", profileId)
-    .eq("visitor_token", visitorToken)
-    .single();
-
-  if (!existing) {
-    const { error } = await supabase.from("visitors").insert({
-      profile_id: profileId,
-      visitor_token: visitorToken,
-    });
-
-    if (error) {
-      console.error("Failed to record visitor:", error);
-    }
-  }
-}
-
-// Get visitors for a profile
-export async function getVisitors(
-  profileId: string
-): Promise<Visitor[]> {
-  const { data, error } = await supabase
+  const { data: visitors, error: visitorsError } = await supabase
     .from("visitors")
     .select("*")
-    .eq("profile_id", profileId)
+    .eq("profile_id", profile.id)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    throw new Error(`Failed to get visitors: ${error.message}`);
-  }
+  if (visitorsError) throw new Error(`Failed to get visitors: ${visitorsError.message}`);
 
-  return data || [];
-}
-
-// Mock reveal a visitor (simulate payment)
-export async function mockRevealVisitor(visitorId: string): Promise<void> {
-  const { error } = await supabase
-    .from("visitors")
-    .update({ revealed: true })
-    .eq("id", visitorId);
-
-  if (error) {
-    throw new Error(`Failed to reveal visitor: ${error.message}`);
-  }
-
-  revalidatePath("/dashboard");
-}
-
-// Send a chat message
-export async function sendChatMessage(
-  profileId: string,
-  visitorToken: string,
-  sender: "owner" | "visitor",
-  content: string
-): Promise<Chat> {
-  const { data, error } = await supabase
-    .from("chats")
-    .insert({
-      profile_id: profileId,
-      visitor_token: visitorToken,
-      sender,
-      content,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to send message: ${error.message}`);
-  }
-
-  return data;
-}
-
-// Get chat messages
-export async function getChatMessages(
-  profileId: string,
-  visitorToken: string
-): Promise<Chat[]> {
-  const { data, error } = await supabase
-    .from("chats")
-    .select("*")
-    .eq("profile_id", profileId)
-    .eq("visitor_token", visitorToken)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw new Error(`Failed to get messages: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-// Get all chats for a profile (for dashboard)
-export async function getAllChats(
-  profileId: string
-): Promise<{ visitor_token: string; last_message: string; created_at: string }[]> {
-  const { data, error } = await supabase
+  const { data: chatsData, error: chatsError } = await supabase
     .from("chats")
     .select("visitor_token, content, created_at")
-    .eq("profile_id", profileId)
+    .eq("profile_id", profile.id)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    throw new Error(`Failed to get chats: ${error.message}`);
-  }
+  if (chatsError) throw new Error(`Failed to get chats: ${chatsError.message}`);
 
-  // Group by visitor_token and get last message
   const chatsMap = new Map();
-  (data || []).forEach((chat) => {
+  (chatsData || []).forEach((chat) => {
     if (!chatsMap.has(chat.visitor_token)) {
       chatsMap.set(chat.visitor_token, {
         visitor_token: chat.visitor_token,
@@ -279,5 +113,129 @@ export async function getAllChats(
     }
   });
 
-  return Array.from(chatsMap.values());
+  return {
+    profile,
+    messages: messages || [],
+    visitors: visitors || [],
+    chats: Array.from(chatsMap.values()),
+  };
+}
+
+export async function recordVisitor(profileId: string, visitorToken: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from("visitors")
+    .select("id")
+    .eq("profile_id", profileId)
+    .eq("visitor_token", visitorToken)
+    .single();
+
+  if (!existing) {
+    await supabase.from("visitors").insert({ profile_id: profileId, visitor_token: visitorToken });
+  }
+}
+
+export async function sendChatMessage(
+  profileId: string,
+  visitorToken: string,
+  sender: "owner" | "visitor",
+  content: string
+): Promise<Chat> {
+  const { data, error } = await supabase
+    .from("chats")
+    .insert({ profile_id: profileId, visitor_token: visitorToken, sender, content })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to send message: ${error.message}`);
+  return data;
+}
+
+export async function getChatMessages(profileId: string, visitorToken: string): Promise<Chat[]> {
+  const { data, error } = await supabase
+    .from("chats")
+    .select("*")
+    .eq("profile_id", profileId)
+    .eq("visitor_token", visitorToken)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(`Failed to get messages: ${error.message}`);
+  return data || [];
+}
+
+export async function createPaymentOrder(messageId: string, profileId: string): Promise<PaymentOrder> {
+  const { data: existing } = await supabase
+    .from("payment_orders")
+    .select("*")
+    .eq("message_id", messageId)
+    .eq("status", "pending")
+    .single();
+
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from("payment_orders")
+    .insert({ message_id: messageId, profile_id: profileId, amount: 520, provider: "wechat" })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to create payment order: ${error.message}`);
+  return data;
+}
+
+export async function getPaymentOrder(orderId: string): Promise<PaymentOrder | null> {
+  const { data, error } = await supabase
+    .from("payment_orders")
+    .select("*")
+    .eq("id", orderId)
+    .single();
+
+  if (error) return null;
+  return data;
+}
+
+export async function getPaymentOrderByMessage(messageId: string): Promise<PaymentOrder | null> {
+  const { data, error } = await supabase
+    .from("payment_orders")
+    .select("*")
+    .eq("message_id", messageId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) return null;
+  return data;
+}
+
+export async function confirmPayment(orderId: string): Promise<void> {
+  const { data: order, error: orderError } = await supabase
+    .from("payment_orders")
+    .select("*")
+    .eq("id", orderId)
+    .single();
+
+  if (orderError || !order) throw new Error("Order not found");
+  if (order.status === "paid") return;
+
+  const { error: updateOrderError } = await supabase
+    .from("payment_orders")
+    .update({ status: "paid", paid_at: new Date().toISOString() })
+    .eq("id", orderId);
+
+  if (updateOrderError) throw new Error(`Failed to update order: ${updateOrderError.message}`);
+
+  const { error: updateMessageError } = await supabase
+    .from("messages")
+    .update({ revealed: true })
+    .eq("id", order.message_id);
+
+  if (updateMessageError) throw new Error(`Failed to reveal message: ${updateMessageError.message}`);
+}
+
+export async function revealVisitor(visitorId: string): Promise<void> {
+  const { error } = await supabase
+    .from("visitors")
+    .update({ revealed: true })
+    .eq("id", visitorId);
+
+  if (error) throw new Error(`Failed to reveal visitor: ${error.message}`);
 }

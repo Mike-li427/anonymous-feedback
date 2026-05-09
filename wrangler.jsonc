@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "anonymous-feedback",
+  "compatibility_date": "2026-05-09",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "anonymous-feedback"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://xzxlkcdadweouokusejo.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdWI6Inh6eGxrY2RhZHdlb3Vva3VzZWpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDc2OTYsImV4cCI6MjA5MzgyMzY5Nn0.USfn8iwtcpudXTAdRn_PoHdCaWLOvOOjDRWOdv_xTrQ"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "匿名评价 - 来匿名评价我",
@@ -17,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body className={inter.className}>
+      <body>
         <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
           {children}
         </main>
